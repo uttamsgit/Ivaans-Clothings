@@ -9,11 +9,9 @@ agent any
 		}
 		stage('Build Information') {
     			steps {
-        		sh 'echo "Project: Ivaans Clothings"'
-        		sh 'node --version'
-        		sh 'npm --version'
+        		sh 'echo "Project: Ivaans Clothings pipeline Starting"'
+        		sh 'git --version'
     			}
-		} 
-
+		}
 	}
 }
