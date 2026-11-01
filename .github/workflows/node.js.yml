@@ -29,3 +29,10 @@ jobs:
       run: npm run build
     - name: Build Docker Image
       run: docker build -t ivaans-clothings:latest .
+    - name: Scan Docker images with Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      with:
+        image-ref: ivaans-clothings:latest
+        format: table
+        exit-code: '0'
+        severity: CRITICAL,HIGH
