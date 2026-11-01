@@ -28,4 +28,4 @@ jobs:
     - name: Build React app
       run: npm run build
     - name: Build Docker Image
-      uses: docker build -t ivaans-clothings:latest .
+      run: docker build -t ivaans-clothings:latest .
