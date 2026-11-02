@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-
+    name: Build react Application
     runs-on: self-hosted
 
     steps:
@@ -27,33 +27,59 @@ jobs:
       run: npm ci
     - name: Build React app
       run: npm run build
-    - name: Build Docker Image
-      run: docker build -t ivaans-clothings:latest .
-    - name: Scan Docker images with Trivy
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        image-ref: ivaans-clothings:latest
-        format: table
-        exit-code: '0'
-        severity: CRITICAL,HIGH
-    - name: Scan Repository for secrets
-      uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+  security-scan:
+    name: Security Scans
+    runs-on: self-hosted
+    needs: build
 
+    steps:
+      - name: Checkout Source Code
+        uses: action/checkout@v4
+      
+      - name: Scan Repository for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }
 
-    - name: Login to Amazon ECR
-      run: |
-        aws ecr get-login-password --region ap-southeast-2 | \
-        docker login --username AWS --password-stdin 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com
+  docker-build:
+      name: Build and Scan Docker Image
+      runs-on: self-hosted
+      needs: security-scan
 
-    - name: Tag Docker Image
-      run: |
-        docker tag ivaans-clothings:latest 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
-        docker tag ivaans-clothings:latest 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
+      steps:
+        - name: Checkout Source Code
+          uses: actions/checkout@v4
+          
+        - name: Build Docker Image
+          run: docker build -t ivaans-clothings:latest .
+          
+        - name: Scan Docker images with Trivy
+          uses: aquasecurity/trivy-action@v0.36.0
+          with:
+            image-ref: ivaans-clothings:latest
+            format: table
+            exit-code: '0'
+            severity: CRITICAL,HIGH
 
-    - name: Push Docker Image to ECR
-      run: |
-        docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
-        docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
+  push-ecr:
+    name: Push Image to Amzon Ecr
+    runs-on: self-hosted
+    needs: docker-build
+
+    steps:
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ap-southeast-2 | \
+          docker login --username AWS --password-stdin 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com
+
+      - name: Tag Docker Image
+        run: |
+          docker tag ivaans-clothings:latest 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
+          docker tag ivaans-clothings:latest 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
+
+      - name: Push Docker Image to ECR
+        run: |
+          docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
+          docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
             
