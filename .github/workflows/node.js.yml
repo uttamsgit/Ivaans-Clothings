@@ -1,7 +1,7 @@
 # This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Node.js CI
+name: Ivaans Clothing CI Pipeline
 
 on:
   push:
@@ -10,7 +10,9 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  # Stage 1: Code Quality and Application Build
+  code_quality:
+    name: "stage 1 - code Quality"
     runs-on: self-hosted
 
     steps:
@@ -26,12 +28,34 @@ jobs:
       run: npm ci
     - name: Build React app
       run: npm run build
+
+  # Stage 2: Secret Detection
+  secret_scan:
+    name: "Stage 2 - Secret Detection"
+    runs-on: self-hosted
+
+    steps:
+
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
       
     - name: Scan Repository for secrets
       uses: gitleaks/gitleaks-action@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
+
+  # Stage 3 - Docker build and Security scan
+  container_build_scan:
+    name: "stage 3 - Conntainer build and Scan"
+    runs-on: self-hosted
+    needs:
+      - code_quality
+      - secret_scan
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
     - name: Build Docker Image
       run: docker build -t ivaans-clothings:latest .
           
@@ -42,6 +66,21 @@ jobs:
         format: table
         exit-code: '0'
         severity: CRITICAL,HIGH
+        ignore-unfixed: true
+
+  # Stage 4 - Publish Image to Aws ECR
+  push_to_ecr:
+    name: "Stage 4 - Push to Amozon ECR"
+    runs-on: self-hosted
+    needs:
+      - container_build_scan
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Build Docker Image for publishing
+      run: docker build -t ivaans-clothings:latest .
 
     - name: Login to Amazon ECR
       run: |
