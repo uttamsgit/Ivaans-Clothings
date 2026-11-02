@@ -39,16 +39,30 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: install Gitleaks
+    - name: Scan Repository for Secrets
+      env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if ! command -v gitleaks >/dev/null 2>&1; then
-            echo "gitleaks is not installed on path."
-            exit 1
-        fi 
-        gitleaks version
-      
-    - name: Scan Repository for secrets
-      run : gitleaks git --reduct --verbose
+        set -e
+
+        if command -v gitleaks >/dev/null 2>&1; then
+          echo "Gitleaks is already installed: $(gitleaks version)"
+        else
+          echo "Gitleaks not found. Installing..."
+
+          GITLEAKS_VERSION="8.24.3"
+
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+
+          tar -xzf gitleaks.tar.gz
+          sudo mv gitleaks /usr/local/bin/
+          chmod +x /usr/local/bin/gitleaks
+
+          echo "Gitleaks installed successfully."
+        fi
+
+        echo "Running Gitleaks scan..."
+        gitleaks detect --source . --verbose
 
   # Stage 3 - Docker build and Security scan
   container_build_scan:
