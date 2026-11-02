@@ -38,6 +38,14 @@ jobs:
 
     - name: Checkout Source Code
       uses: actions/checkout@v4
+
+    - name: install Gitleaks
+      run: |
+        if ! command -v gitleaks >/dev/null 2>&1; then
+            echo "gitleaks is not installed on path."
+            exit 1
+        fi 
+        gitleaks version
       
     - name: Scan Repository for secrets
       uses: gitleaks/gitleaks-action@v2
