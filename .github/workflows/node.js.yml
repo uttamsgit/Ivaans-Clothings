@@ -48,9 +48,7 @@ jobs:
         gitleaks version
       
     - name: Scan Repository for secrets
-      uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run : gitleaks git --reduct --verbose
 
   # Stage 3 - Docker build and Security scan
   container_build_scan:
