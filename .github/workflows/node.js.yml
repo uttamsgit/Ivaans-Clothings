@@ -43,24 +43,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }
 
   docker-build:
-      name: Build and Scan Docker Image
-      runs-on: self-hosted
-      needs: security-scan
+    name: Build and Scan Docker Image
+    runs-on: self-hosted
+    needs: security-scan
 
-      steps:
-        - name: Checkout Source Code
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
           
-        - name: Build Docker Image
-          run: docker build -t ivaans-clothings:latest .
+      - name: Build Docker Image
+        run: docker build -t ivaans-clothings:latest .
           
-        - name: Scan Docker images with Trivy
-          uses: aquasecurity/trivy-action@v0.36.0
-          with:
-            image-ref: ivaans-clothings:latest
-            format: table
-            exit-code: '0'
-            severity: CRITICAL,HIGH
+      - name: Scan Docker images with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ivaans-clothings:latest
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
 
   push-ecr:
     name: Push Image to Amzon Ecr
