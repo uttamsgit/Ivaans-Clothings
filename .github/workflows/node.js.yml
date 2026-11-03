@@ -116,4 +116,67 @@ jobs:
       run: |
         docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
         docker push 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
-            
+           
+
+
+  # Stage 5: Deploy application to EC2
+  deploy:
+    - name: "Stage 5 - Deploy to Application EC2"
+      runs-on: self-hosted
+      needs:
+        - push_to_ecr
+
+
+      steps:
+        - name: Deploy application
+          env:
+            APP_HOST: ${{ secrets.APP_EC2_HOST }}
+            SSH_PRIVATE_KEY: ${{ secrets.APP_EC2_SSH_KEY }}
+            IMAGE_TAG: ${{ github.sha }}
+          run: |
+            set -e
+
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+
+            KEY_FILE=$(mktemp)
+            trap 'rm -f "$KEY_FILE"' EXIT
+
+            printf '%s\n' "$SSH_PRIVATE_KEY" > "$KEY_FILE"
+            chmod 600 "$KEY_FILE"
+
+            ssh-keyscan -H "$APP_HOST" >> ~/.ssh/known_hosts
+
+            ssh -i "$KEY_FILE" \
+              -o StrictHostKeyChecking=yes \
+              ubuntu@"$APP_HOST" \
+              "IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
+                set -e
+
+                ECR="534283254764.dkr.ecr.ap-southeast-2.amazonaws.com"
+                IMAGE="$ECR/ivaans-clothings:$IMAGE_TAG"
+
+                echo "Logging in to Amazon ECR..."
+                aws ecr get-login-password --region ap-southeast-2 \
+                  | docker login --username AWS --password-stdin "$ECR"
+
+                echo "Pulling image: $IMAGE"
+                docker pull "$IMAGE"
+
+                echo "Replacing application container..."
+                docker rm -f ivaans-clothings 2>/dev/null || true
+
+                docker run -d \
+                  --name ivaans-clothings \
+                  --restart unless-stopped \
+                  -p 80:5173 \
+                  "$IMAGE"
+
+                echo "Checking application..."
+                sleep 10
+                curl --fail --retry 5 --retry-delay 3 \
+                http://localhost/ >/dev/null
+
+                echo "Deployment successful!"
+                docker ps --filter name=ivaans-clothings
+            REMOTE
