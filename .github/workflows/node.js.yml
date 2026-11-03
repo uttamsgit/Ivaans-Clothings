@@ -64,13 +64,37 @@ jobs:
         echo "Running Gitleaks scan..."
         gitleaks detect --source . --verbose
 
-  # Stage 3 - Docker build and Security scan
+  # Stage 3: Static Application Security Testing (SAST)
+  sast_scan:
+    name: "Stage 3 - SAST with Semgrep"
+    runs-on: self-hosted
+
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Scan Source Code with Semgrep
+      run: |
+        docker run --rm \
+          -v "$PWD:/src" \
+          semgrep/semgrep:latest \
+          semgrep scan \
+          --config auto \
+          --error \
+          /src
+
+
+
+
+  # Stage 4 - Docker build and Security scan
   container_build_scan:
     name: "stage 3 - Conntainer build and Scan"
     runs-on: self-hosted
     needs:
       - code_quality
       - secret_scan
+      - sast_scan
 
     steps:
     - name: Checkout Source Code
@@ -88,7 +112,7 @@ jobs:
         severity: CRITICAL,HIGH
         ignore-unfixed: true
 
-  # Stage 4 - Publish Image to Aws ECR
+  # Stage 5 - Publish Image to Aws ECR
   push_to_ecr:
     name: "Stage 4 - Push to Amozon ECR"
     runs-on: self-hosted
@@ -119,7 +143,7 @@ jobs:
            
 
 
-  # Stage 5: Deploy application to EC2
+  # Stage 6: Deploy application to EC2
   deploy:
     name: "Stage 5 - Deploy to Application EC2"
     runs-on: self-hosted
@@ -183,7 +207,7 @@ jobs:
 
 
 
-  # Stage 6: Application Smoke Test
+  # Stage 7: Application Smoke Test
   smoke_test:
     name: "Stage 6 - Smoke Test"
     runs-on: self-hosted
