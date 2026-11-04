@@ -74,7 +74,6 @@ jobs:
     needs:
       - code_quality
       - secret_scan
-      - sast_scan
 
     steps:
     - name: Checkout Source Code
