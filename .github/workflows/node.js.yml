@@ -199,3 +199,124 @@ jobs:
         curl -f -s -S http://15.134.116.41/ -o /dev/null 
 
         echo "Application is responding successfully!"
+
+
+  # Stage - 7 Deploy Application to ECS
+  deploy_ecs:
+  name: "Stage 7 - Deploy to ECS Fargate"
+  runs-on: self-hosted
+  needs:
+    - smoke_test
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+  steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Prepare new ECS task definition
+      env:
+        IMAGE_URI: 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:${{ github.sha }}
+      run: |
+        set -e
+
+        echo "Getting current ECS task definition..."
+
+        aws ecs describe-task-definition \
+          --task-definition ivaans-clothings-task \
+          --region ap-southeast-2 \
+          --query taskDefinition \
+          --output json > task-definition.json
+
+        echo "Updating container image while preserving existing configuration..."
+
+        python3 - <<'PY'
+        import json
+        import os
+
+        path = "task-definition.json"
+
+        with open(path) as f:
+            task = json.load(f)
+
+        for key in [
+            "taskDefinitionArn",
+            "revision",
+            "status",
+            "requiresAttributes",
+            "compatibilities",
+            "registeredAt",
+            "registeredBy",
+            "deregisteredAt"
+        ]:
+            task.pop(key, None)
+
+        containers = [
+            c for c in task["containerDefinitions"]
+            if c.get("name") == "ivaans-clothings"
+        ]
+
+        if len(containers) != 1:
+            raise SystemExit("Expected exactly one ivaans-clothings container")
+
+        containers[0]["image"] = os.environ["IMAGE_URI"]
+
+        with open(path, "w") as f:
+            json.dump(task, f, indent=2)
+
+        print("New image:", containers[0]["image"])
+        PY
+
+    - name: Register new ECS task definition
+      id: register
+      run: |
+        set -e
+
+        NEW_TASK_DEF=$(aws ecs register-task-definition \
+          --cli-input-json file://task-definition.json \
+          --region ap-southeast-2 \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+        echo "New task definition: $NEW_TASK_DEF"
+        echo "task_definition=$NEW_TASK_DEF" >> "$GITHUB_OUTPUT"
+
+    - name: Update ECS service
+      env:
+        NEW_TASK_DEF: ${{ steps.register.outputs.task_definition }}
+      run: |
+        aws ecs update-service \
+          --cluster ivaans-clothings-cluster \
+          --service ivaans-clothings-service \
+          --task-definition "$NEW_TASK_DEF" \
+          --region ap-southeast-2
+
+    - name: Wait for ECS deployment stability
+      run: |
+        aws ecs wait services-stable \
+          --cluster ivaans-clothings-cluster \
+          --services ivaans-clothings-service \
+          --region ap-southeast-2
+
+        echo "ECS deployment completed successfully!"
+
+
+  # Stage - 8 -- SMoke Test ECS
+  ecs_smoke_test:
+  name: "Stage 8 - ECS Smoke Test"
+  runs-on: self-hosted
+  needs:
+    - deploy_ecs
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+  steps:
+    - name: Test application through ALB
+      run: |
+        echo "Checking ECS application through ALB..."
+
+        curl --fail --silent --show-error \
+          --retry 10 \
+          --retry-delay 15 \
+          --retry-connrefused \
+          http://ivaans-clothings-alb-67130045.ap-southeast-2.elb.amazonaws.com/
+
+        echo "ECS application is responding successfully!"
