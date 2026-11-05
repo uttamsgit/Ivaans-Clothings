@@ -1,0 +1,21 @@
+name: EKS Deployment Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  eks-connectivity:
+    name: Connect to EKS
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        run: |
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
