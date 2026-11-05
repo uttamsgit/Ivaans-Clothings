@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: ivaans-clothings-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: ivaans-clothings
+
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5173
+

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ivaans-clothings
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: ivaans-clothings
+
+  template:
+    metadata:
+      labels:
+        app: ivaans-clothings
+
+    spec:
+      containers:
+        - name: ivaans-clothings
+          image: 534283254764.dkr.ecr.ap-southeast-2.amazonaws.com/ivaans-clothings:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 5173
+
+          
