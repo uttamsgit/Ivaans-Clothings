@@ -19,3 +19,28 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
           kubectl version --client
+
+
+  deploy-application:
+    name: Deploy Ivaans Clothings
+    runs-on: self-hosted
+    needs: eks-connectivity
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure EKS access
+        run: |
+          aws eks update-kubeconfig \
+            --region ap-southeast-2 \
+            --name ivaans-eks-cluster
+
+      - name: Deploy Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl
+
+
+
+
